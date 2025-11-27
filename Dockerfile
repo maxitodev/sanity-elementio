@@ -18,24 +18,18 @@ COPY . .
 # Build the Sanity Studio
 RUN pnpm build
 
-# Production stage - serve static files
-FROM node:20-alpine AS runner
+# Production stage - serve static files with nginx
+FROM nginx:alpine AS runner
 
-RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
+# Copy built static files to nginx
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-WORKDIR /app
-
-# Copy built files and package files
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/pnpm-lock.yaml ./
-
-# Install only production dependencies
-RUN pnpm install --frozen-lockfile --prod
+# Copy custom nginx config for Cloud Run
+COPY nginx.conf /etc/nginx/nginx.conf
 
 # Cloud Run uses PORT environment variable
 ENV PORT=8080
 EXPOSE 8080
 
-# Start Sanity Studio server
-CMD ["pnpm", "start"]
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
